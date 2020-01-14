@@ -1,8 +1,11 @@
 package uk.co.flax.luwak.demo;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,7 +52,7 @@ public class LuwakDemo {
     public static final Logger logger = LoggerFactory.getLogger(LuwakDemo.class);
 
     public static void main(String... args) throws Exception {
-        new LuwakDemo("src/test/resources/demoqueries", "src/test/resources/gutenberg");
+        new LuwakDemo("demoqueries", "gutenberg");
     }
 
     public LuwakDemo(String queriesFile, String inputDirectory) throws Exception {
@@ -66,8 +69,8 @@ public class LuwakDemo {
         List<MonitorQuery> queries = new ArrayList<>();
         int count = 0;
         logger.info("Loading queries from {}", queriesFile);
-        try (FileInputStream fis = new FileInputStream(queriesFile);
-                BufferedReader br = new BufferedReader(new InputStreamReader(fis,Charsets.UTF_8))) {
+        File queriesFiles = getFileFromResource(queriesFile);
+        try (BufferedReader br = new BufferedReader(new FileReader(queriesFiles))) {
             String queryString;
             while ((queryString = br.readLine()) != null) {
                 if (Strings.isNullOrEmpty(queryString))
@@ -83,12 +86,13 @@ public class LuwakDemo {
     static List<InputDocument> buildDocs(String inputDirectory) throws Exception {
         List<InputDocument> docs = new ArrayList<>();
         logger.info("Reading documents from {}", inputDirectory);
-        for (Path filePath : Files.newDirectoryStream(FileSystems.getDefault().getPath(inputDirectory))) {
+
+        for (File file : getFilesFromResource(inputDirectory)) {
             String content;
-            try (FileInputStream fis = new FileInputStream(filePath.toFile());
+            try (FileInputStream fis = new FileInputStream(file);
                  InputStreamReader reader = new InputStreamReader(fis, Charsets.UTF_8)) {
                 content = CharStreams.toString(reader);
-                InputDocument doc = InputDocument.builder(filePath.toString())
+                InputDocument doc = InputDocument.builder(file.getPath())
                         .addField(FIELD, content, new StandardAnalyzer())
                         .build();
                 docs.add(doc);
@@ -108,6 +112,18 @@ public class LuwakDemo {
             }
         }
 
+    }
+
+    private static File getFileFromResource(String fileName) {
+        ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+        return new File(classLoader.getResource(fileName).getFile());
+    }
+
+    private static File[] getFilesFromResource(String folder) {
+        ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+        URL url = classLoader.getResource(folder);
+        String path = url.getPath();
+        return new File(path).listFiles();
     }
 
 }
